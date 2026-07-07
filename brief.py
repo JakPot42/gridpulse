@@ -15,12 +15,15 @@ def generate_brief(
         from seed_data import DEMO_BRIEFS
         return DEMO_BRIEFS.get(snap.region, DEMO_BRIEFS["_default"])
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    msg = client.messages.create(
-        model=MODEL,
-        max_tokens=350,
-        messages=[{"role": "user", "content": _build_prompt(snap, scenario_result)}],
-    )
-    return msg.content[0].text.strip()
+    try:
+        msg = client.messages.create(
+            model=MODEL,
+            max_tokens=350,
+            messages=[{"role": "user", "content": _build_prompt(snap, scenario_result)}],
+        )
+        return msg.content[0].text.strip()
+    except Exception as exc:
+        raise RuntimeError(f"Claude API error: {exc}") from exc
 
 
 def _build_prompt(snap: RegionSnapshot, scenario_result: ScenarioResult | None) -> str:
