@@ -5,6 +5,14 @@ no try/except at all around client.messages.create() -- a live-mode
 Claude failure propagated as a raw, unhandled provider exception. Its own
 twin, water_monitor/brief.py, already wrapped the identical call in
 try/except -> RuntimeError; gridpulse's copy had drifted. Fixed to match.
+
+Phase 6, Cluster 5 consistency pass: generate_brief() now delegates its
+live-mode call to the shared claude_brief.call_claude(), which constructs
+its own anthropic.Anthropic client internally -- the mock patch target
+moved from brief.anthropic.Anthropic to claude_brief.anthropic.Anthropic,
+and the raised exception is claude_brief.ClaudeCallError instead of a
+locally-defined RuntimeError. Same guarantee either way: a live-mode
+Claude failure surfaces as a clear, raised error, never silent.
 """
 import sys
 import os
@@ -15,6 +23,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from brief import generate_brief
+from claude_brief import ClaudeCallError
 from stress_engine import build_snapshot
 
 
@@ -44,8 +53,9 @@ class TestGenerateBriefDemoMode:
 
 
 class TestGenerateBriefLiveMode:
-    @patch("brief.anthropic.Anthropic")
-    def test_live_mode_returns_stripped_text(self, mock_anthropic_cls):
+    @patch("claude_brief.anthropic.Anthropic")
+    def test_live_mode_returns_stripped_text(self, mock_anthropic_cls, monkeypatch):
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
         mock_client = MagicMock()
         mock_msg = MagicMock()
         mock_msg.content = [MagicMock(text="  Grid stress is elevated due to low wind.  ")]
@@ -55,31 +65,41 @@ class TestGenerateBriefLiveMode:
         text = generate_brief(_snap(), demo_mode=False)
         assert text == "Grid stress is elevated due to low wind."
 
-    @patch("brief.anthropic.Anthropic")
-    def test_live_mode_wraps_api_failure_in_runtime_error(self, mock_anthropic_cls):
+    @patch("claude_brief.anthropic.Anthropic")
+    def test_live_mode_wraps_api_failure_in_claude_call_error(self, mock_anthropic_cls, monkeypatch):
         """
         Regression test for the fix: a genuine Claude API failure (network
-        error, rate limit, etc.) must surface as RuntimeError, not propagate
-        as a raw, unhandled exception from the anthropic SDK.
+        error, rate limit, etc.) must surface as ClaudeCallError, not
+        propagate as a raw, unhandled exception from the anthropic SDK.
         """
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
         mock_client = MagicMock()
         mock_client.messages.create.side_effect = RuntimeError("simulated API failure")
         mock_anthropic_cls.return_value = mock_client
 
-        with pytest.raises(RuntimeError, match="Claude API error"):
+        with pytest.raises(ClaudeCallError, match="Claude API error"):
             generate_brief(_snap(), demo_mode=False)
 
-    @patch("brief.anthropic.Anthropic")
-    def test_live_mode_wraps_non_runtime_exceptions_too(self, mock_anthropic_cls):
+    @patch("claude_brief.anthropic.Anthropic")
+    def test_live_mode_wraps_non_runtime_exceptions_too(self, mock_anthropic_cls, monkeypatch):
         """The bug this fixes: the original code caught nothing at all, so
         even a bare Exception subclass (not just RuntimeError) would have
         propagated raw. Confirm any Exception is wrapped, matching the
         portfolio-wide 'catch Exception, not a specific SDK type' doctrine
         (the Anthropic SDK raises a bare TypeError on a missing/malformed
         key, not anthropic.APIError)."""
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
         mock_client = MagicMock()
         mock_client.messages.create.side_effect = TypeError("bad api key")
         mock_anthropic_cls.return_value = mock_client
 
-        with pytest.raises(RuntimeError, match="Claude API error"):
+        with pytest.raises(ClaudeCallError, match="Claude API error"):
+            generate_brief(_snap(), demo_mode=False)
+
+    def test_live_mode_missing_api_key_raises_claude_call_error(self, monkeypatch):
+        """New behavior from the shared claude_brief.call_claude(): a missing
+        key is checked before any network attempt, rather than surfacing as
+        whatever error the SDK happens to raise on empty credentials."""
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        with pytest.raises(ClaudeCallError, match="ANTHROPIC_API_KEY not set"):
             generate_brief(_snap(), demo_mode=False)

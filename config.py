@@ -3,11 +3,13 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
+from demo_mode import is_demo_mode
+
 load_dotenv()
 
 ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
 EIA_API_KEY: str = os.getenv("EIA_API_KEY", "")
-DEMO_MODE: bool = os.getenv("DEMO_MODE", "True").lower() not in ("false", "0", "no")
+DEMO_MODE: bool = is_demo_mode()
 MODEL: str = os.getenv("GRIDPULSE_MODEL", "claude-haiku-4-5-20251001")
 DB_PATH: str = os.getenv("GRIDPULSE_DB", str(Path(__file__).parent / "gridpulse.db"))
 
@@ -25,12 +27,8 @@ REGIONS: dict[str, dict] = {
     "NY":   {"name": "New York",     "lat": 40.71, "lon":  -74.01, "firm_gw": 38.0},
 }
 
-STRESS_TIERS: dict[str, tuple[float, float]] = {
-    "LOW":      (0.0,  25.0),
-    "ELEVATED": (25.0, 50.0),
-    "HIGH":     (50.0, 75.0),
-    "CRITICAL": (75.0, 100.1),  # upper bound open
-}
+# STRESS_TIERS moved to stress_core.py (Phase 6, Cluster 5 consistency pass) --
+# was a byte-identical duplicate of water_monitor's own copy; see stress_core.py.
 
 FUEL_RENEWABLE_VARIABLE: set[str] = {"SUN", "WND"}
 FUEL_FIRM: set[str] = {"NG", "NUC", "COL", "OIL"}

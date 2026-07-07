@@ -1,6 +1,10 @@
 """Deterministic grid stress score computation — no AI, no external calls."""
 from dataclasses import dataclass
-from config import STRESS_TIERS, REGIONS, FUEL_FIRM
+from config import REGIONS, FUEL_FIRM
+
+# score_to_tier moved to stress_core.py (Phase 6, Cluster 5 consistency pass) --
+# re-exported here so `from stress_engine import score_to_tier` keeps working.
+from stress_core import score_to_tier
 
 
 @dataclass
@@ -19,13 +23,6 @@ class RegionSnapshot:
     tier: str
     net_load_mwh: float
     renewable_pct: float
-
-
-def score_to_tier(score: float) -> str:
-    for tier, (lo, hi) in STRESS_TIERS.items():
-        if lo <= score < hi:
-            return tier
-    return "CRITICAL"
 
 
 def compute_stress(

@@ -1,6 +1,14 @@
-"""Claude Haiku stress-driver narrative brief."""
-import anthropic
-from config import ANTHROPIC_API_KEY, MODEL, DEMO_MODE
+"""Claude Haiku stress-driver narrative brief.
+
+Live-mode Claude call delegates to the shared claude_brief.call_claude()
+(Phase 6, Cluster 5 consistency pass) instead of constructing its own
+anthropic.Anthropic client -- on_error="raise" preserves this repo's own
+Step 0 fix (a dedicated `brief` command should fail loudly, not silently
+succeed with the wrong content), now raising claude_brief.ClaudeCallError
+instead of a locally-defined RuntimeError.
+"""
+from claude_brief import call_claude
+from config import MODEL, DEMO_MODE
 from stress_engine import RegionSnapshot
 from scenarios import ScenarioResult
 
@@ -14,16 +22,12 @@ def generate_brief(
     if demo_mode:
         from seed_data import DEMO_BRIEFS
         return DEMO_BRIEFS.get(snap.region, DEMO_BRIEFS["_default"])
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    try:
-        msg = client.messages.create(
-            model=MODEL,
-            max_tokens=350,
-            messages=[{"role": "user", "content": _build_prompt(snap, scenario_result)}],
-        )
-        return msg.content[0].text.strip()
-    except Exception as exc:
-        raise RuntimeError(f"Claude API error: {exc}") from exc
+    return call_claude(
+        [{"role": "user", "content": _build_prompt(snap, scenario_result)}],
+        max_tokens=350,
+        model=MODEL,
+        on_error="raise",
+    )
 
 
 def _build_prompt(snap: RegionSnapshot, scenario_result: ScenarioResult | None) -> str:
