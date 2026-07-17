@@ -18,7 +18,7 @@ CLI tool that fuses EIA electricity demand/generation data with NOAA weather for
 - Four alert tiers: **LOW** [0-25) / **ELEVATED** [25-50) / **HIGH** [50-75) / **CRITICAL** [75-100]
 - What-if scenarios: "what if wind drops 20%?", "polar vortex demand surge"
 - Claude Haiku brief explaining what's driving a stress spike in plain language
-- Joule export: outputs stress index in format compatible with **P20 joule** DoD SMR suitability screener
+- Joule export: outputs stress index in format compatible with **joule** DoD SMR suitability screener
 
 ## Regions
 
@@ -59,7 +59,7 @@ python main.py scenario TEX --scenario wind_drop
 python main.py scenario NE --scenario polar_vortex
 python main.py scenario CAL --wind-pct -20 --demand-pct 15
 
-# Export stress index in P20 joule format (DoD SMR suitability integration)
+# Export stress index in joule format (DoD SMR suitability integration)
 python main.py export
 python main.py export --format json
 
@@ -92,9 +92,9 @@ score = clamp((net_load / firm_capacity_mw - 0.6) / 0.4 * 100, 0, 100)
 - **score = 50**: firm capacity at 80% utilization — elevated but manageable
 - **score = 100**: firm capacity at 100%+ — crisis conditions
 
-## P20 joule integration
+## joule integration
 
-GridPulse's stress index is the grid-side input the **P20 joule** DoD installation SMR suitability screener needs. A DoD installation in a HIGH or CRITICAL stress region has higher SMR value as a resilience asset — the regional grid cannot absorb additional demand disruption.
+GridPulse's stress index is the grid-side input the **joule** DoD installation SMR suitability screener needs. A DoD installation in a HIGH or CRITICAL stress region has higher SMR value as a resilience asset — the regional grid cannot absorb additional demand disruption.
 
 ```bash
 # Export in joule-compatible format
